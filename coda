@@ -4,10 +4,13 @@
 
 import sys, os, time, commands, tempfile, optparse
 
-version = "1.7.0.0"
-bundle_id = "com.panic.Coda"
+version = '1.7.0.0'
+bundle_id = 'com.panic.Coda'
 
-parser = optparse.OptionParser(usage='usage: %prog [options] [file ...]')
+parser = optparse.OptionParser(
+    usage='usage: %prog [options] [file ...]',
+    epilog="To read input from STDIN, pass `-` for [file]. If used in a pipe, coda discards all options and implies `-w`."
+)
 opts = (
     ('-w', '--wait', {'action': 'store_true', 'default': False, 'help': 'wait for file to be closed'}),
     ('-d', '--change-dir', {'action': 'store_true', 'dest': 'chdir', 'default': False, 'help': "change Coda's working directory"}),
@@ -15,6 +18,7 @@ opts = (
 )
 for opt in opts:
     parser.add_option(*opt[:-1], **opt[-1])
+parser.version = "%%prog: %s" % version
 
 (options, files) = parser.parse_args()
 
@@ -23,14 +27,14 @@ def open_tabs():
     return [os.path.realpath(tab) for tab in tabs]
 
 if options.version:
-    print "coda %s" % version
+    parser.print_version()
     exit()
 
 tmpfile = None
 if not sys.stdin.isatty() or files == ['-']: # could this be a pipe?
     if sys.stdin.isatty(): # not a pipe, wait for more stdin
         sys.stderr.write("coda: Reading from stdin... (press CTRL-D to proceed)\n")
-    (fd, tmpfile) = tempfile.mkstemp(prefix='coda stdin ')
+    (fd, tmpfile) = tempfile.mkstemp(prefix='coda ')
     os.fdopen(fd, 'w').write(sys.stdin.read())
     options.wait = True
     files = [tmpfile]
@@ -61,7 +65,10 @@ if options.chdir:
 if options.wait:
     while list(set(files) & set(open_tabs())):
         time.sleep(.5)
-    if tmpfile and not sys.stdout.isatty():
-        sys.stdout.write(open(tmpfile).read())
+    if tmpfile:
+        if sys.stdout.isatty():
+            sys.stderr.write("File written to %s" % tmpfile)
+        else:
+            sys.stdout.write(open(tmpfile).read())
     if return_to:
         os.system('osascript -e "tell application \\"%s\\" to activate"' % return_to)
