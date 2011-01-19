@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+# @todo figure out why `echo 'foo' | coda | xargs echo` works but `echo 'foo' | coda | echo` doesn't.
+
 import sys, os, time, commands, tempfile, optparse
 
 version = "1.7.0.0"
@@ -8,6 +10,7 @@ bundle_id = "com.panic.Coda"
 parser = optparse.OptionParser(usage='usage: %prog [options] [file ...]')
 opts = (
     ('-w', '--wait', {'action': 'store_true', 'default': False, 'help': 'wait for file to be closed'}),
+    ('-d', '--change-dir', {'action': 'store_true', 'dest': 'chdir', 'default': False, 'help': "change Coda's working directory"}),
     ('--version', {'action': 'store_true', 'default': False, 'help': 'print version information and quit'}),
 )
 for opt in opts:
@@ -24,7 +27,7 @@ if options.version:
     exit()
 
 tmpfile = None
-if not sys.stdin.isatty() or files == ['-']: # could be a pipe
+if not sys.stdin.isatty() or files == ['-']: # could this be a pipe?
     if sys.stdin.isatty(): # not a pipe, wait for more stdin
         sys.stderr.write("coda: Reading from stdin... (press CTRL-D to proceed)\n")
     (fd, tmpfile) = tempfile.mkstemp(prefix='coda stdin ')
@@ -47,6 +50,13 @@ for name in files:
         os.system('mkdir -p "%s"' % os.path.dirname(name))
         os.system('touch "%s"' % name)
     os.system('open -b %s "%s"' % (bundle_id, name))
+
+if options.chdir:
+    plen = len(os.path.commonprefix(files))
+    path = os.path.commonprefix([f[:plen].rsplit("/", 1)[0] for f in files])
+    if not os.path.isdir(path):
+        path = os.path.dirname(path)
+    os.system('open -b %s "%s"' % (bundle_id, path))
 
 if options.wait:
     while list(set(files) & set(open_tabs())):
