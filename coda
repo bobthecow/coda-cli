@@ -1,10 +1,12 @@
 #!/usr/bin/python
-
+#
+# Coda CLI
+#
 # @todo figure out why `echo 'foo' | coda | xargs echo` works but `echo 'foo' | coda | echo` doesn't.
 
 import sys, os, time, commands, tempfile, optparse
 
-version = '1.7.0.0'
+version = '0.99.0'
 bundle_id = 'com.panic.Coda'
 
 parser = optparse.OptionParser(
@@ -22,8 +24,11 @@ parser.version = "%%prog: %s" % version
 
 (options, files) = parser.parse_args()
 
+def appscript(app, script):
+    return commands.getoutput('osascript -e "tell application \\"%s\\" to %s')
+
 def open_tabs():
-    tabs = commands.getoutput('IFS=","; for f in $(osascript -e "tell application \\"Coda\\" to return file path of every editor of every split of every tab of every document"); do echo "$f" | sed "s/^ *//g"; done').split("\n")
+    tabs = appscript('Coda', 'return file path of every editor of every split of every tab of every document').split(", ")
     return [os.path.realpath(tab) for tab in tabs]
 
 if options.version:
@@ -45,7 +50,7 @@ if not files:
 
 return_to = None
 if options.wait:
-    return_to = commands.getoutput('osascript -e "tell application \\"System Events\\" to return name of first application process whose frontmost is true"')
+    return_to = appscript('System Events', 'return name of first application process whose frontmost is true')
 
 files = [os.path.realpath(f) for f in files]
 
@@ -71,4 +76,4 @@ if options.wait:
         else:
             sys.stdout.write(open(tmpfile).read())
     if return_to:
-        os.system('osascript -e "tell application \\"%s\\" to activate"' % return_to)
+        appscript(return_to, 'activate')
