@@ -1,0 +1,57 @@
+#!/usr/bin/python
+
+import sys, os, time, commands, tempfile, optparse
+
+version = "1.7.0.0"
+bundle_id = "com.panic.Coda"
+
+parser = optparse.OptionParser(usage='usage: %prog [options] [file ...]')
+opts = (
+    ('-w', '--wait', {'action': 'store_true', 'default': False, 'help': 'wait for file to be closed'}),
+    ('--version', {'action': 'store_true', 'default': False, 'help': 'print version information and quit'}),
+)
+for opt in opts:
+    parser.add_option(*opt[:-1], **opt[-1])
+
+(options, files) = parser.parse_args()
+
+def open_tabs():
+    tabs = commands.getoutput('IFS=","; for f in $(osascript -e "tell application \\"Coda\\" to return file path of every editor of every split of every tab of every document"); do echo "$f" | sed "s/^ *//g"; done').split("\n")
+    return [os.path.realpath(tab) for tab in tabs]
+
+if options.version:
+    print "coda %s" % version
+    exit()
+
+tmpfile = None
+if not sys.stdin.isatty() or files == ['-']: # could be a pipe
+    if sys.stdin.isatty(): # not a pipe, wait for more stdin
+        sys.stderr.write("coda: Reading from stdin... (press CTRL-D to proceed)\n")
+    (fd, tmpfile) = tempfile.mkstemp(prefix='coda stdin ')
+    os.fdopen(fd, 'w').write(sys.stdin.read())
+    options.wait = True
+    files = [tmpfile]
+
+if not files:
+    os.system('open -b %s' % bundle_id)
+    exit()
+
+return_to = None
+if options.wait:
+    return_to = commands.getoutput('osascript -e "tell application \\"System Events\\" to return name of first application process whose frontmost is true"')
+
+files = [os.path.realpath(f) for f in files]
+
+for name in files:
+    if not os.path.exists(name):
+        os.system('mkdir -p "%s"' % os.path.dirname(name))
+        os.system('touch "%s"' % name)
+    os.system('open -b %s "%s"' % (bundle_id, name))
+
+if options.wait:
+    while list(set(files) & set(open_tabs())):
+        time.sleep(.5)
+    if tmpfile and not sys.stdout.isatty():
+        sys.stdout.write(open(tmpfile).read())
+    if return_to:
+        os.system('osascript -e "tell application \\"%s\\" to activate"' % return_to)
