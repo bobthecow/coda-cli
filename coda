@@ -26,17 +26,16 @@ parser.version = "%%prog: %s" % version
 (options, files) = parser.parse_args()
 
 def osascript(scpt):
-    return commands.getoutput("osascript<<END\n%s\nEND\n:" % scpt)
+    return commands.getoutput("osascript<<ENDSCRIPT\n%s\nENDSCRIPT\n:" % scpt)
 
 def open_tabs():
     scpt =  """
             set AppleScript's text item delimiters to "\n"
             tell application "Coda"
-                return (file path of every editor of every split of every tab of every document as text)
+                return file path of every editor of every split of every tab of every document as text
             end tell
             """
-    tabs = osascript(scpt)
-    return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value", tabs.rstrip("\n").split("\n"))]
+    return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value", osascript(scpt).rstrip("\n").split("\n"))]
 
 if options.version:
     parser.print_version()
