@@ -2,7 +2,8 @@
 #
 # @todo figure out why `echo 'foo' | coda | xargs echo` works but `echo 'foo' | coda | echo` doesn't.
 
-import sys, os, time, commands, tempfile, optparse
+import sys, os, time, commands, optparse
+from tempfile import mkstemp
 from pipes import quote
 
 version = '0.99.0'
@@ -39,26 +40,26 @@ if options.version:
     exit()
 
 if options.lstabs:
-    print open_tabs()
+    print "\n".join(open_tabs())
     exit()
 
 from_stdin = (files == ['-'] or not sys.stdin.isatty())
 to_stdout  = (not sys.stdout.isatty())
-tmpfile    = None
+tempfile   = None
 
 if not files and not to_stdout:
     os.system('open -b %s' % bundle_id)
     exit()
 
 if from_stdin or to_stdout:
-    (fd, tmpfile) = tempfile.mkstemp(prefix='coda ')
+    (fd, tempfile) = mkstemp(prefix='coda ')
     options.wait = True
-    files = [tmpfile]
+    files = [tempfile]
 
 if from_stdin: # could this be a pipe?
     if sys.stdin.isatty(): # not a pipe, wait for more stdin
         sys.stderr.write("coda: Reading from stdin... (press CTRL-D to proceed)\n")
-    open(tmpfile, 'w').write(sys.stdin.read())
+    open(tempfile, 'w').write(sys.stdin.read())
 
 return_to = None
 if options.wait:
@@ -83,8 +84,8 @@ if options.wait:
     while list(set(files) & set(open_tabs())):
         time.sleep(.5)
     if to_stdout:
-        sys.stdout.write(open(tmpfile).read())
-    elif tmpfile:
-        sys.stderr.write("File written to %s" % quote(tmpfile))
+        sys.stdout.write(open(tempfile).read())
+    elif tempfile:
+        sys.stderr.write("File written to %s" % quote(tempfile))
     if return_to:
         os.system('osascript -e "tell application \\"%s\\" to activate"' % return_to)
