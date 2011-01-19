@@ -1,21 +1,21 @@
 #!/usr/bin/python
 #
-# Coda CLI
-#
 # @todo figure out why `echo 'foo' | coda | xargs echo` works but `echo 'foo' | coda | echo` doesn't.
 
 import sys, os, time, commands, tempfile, optparse
+from pipes import quote
 
 version = '0.99.0'
 bundle_id = 'com.panic.Coda'
 
 parser = optparse.OptionParser(
     usage='usage: %prog [options] [file ...]',
-    epilog="To read input from STDIN, pass `-` for [file]. If used in a pipe, coda discards all options and implies `-w`."
+    epilog="To read input from stdin, pass `-` for [file]. If used in a pipe, coda discards all options and implies `-w`."
 )
 opts = (
     ('-w', '--wait', {'action': 'store_true', 'default': False, 'help': 'wait for file to be closed'}),
     ('-d', '--change-dir', {'action': 'store_true', 'dest': 'chdir', 'default': False, 'help': "change Coda's working directory"}),
+    ('--ls-tabs', {'action': 'store_true', 'dest': 'lstabs', 'default': False, 'help': 'show all open tabs'}),
     ('--version', {'action': 'store_true', 'default': False, 'help': 'print version information and quit'}),
 )
 for opt in opts:
@@ -24,56 +24,67 @@ parser.version = "%%prog: %s" % version
 
 (options, files) = parser.parse_args()
 
-def appscript(app, script):
-    return commands.getoutput('osascript -e "tell application \\"%s\\" to %s')
-
 def open_tabs():
-    tabs = appscript('Coda', 'return file path of every editor of every split of every tab of every document').split(", ")
-    return [os.path.realpath(tab) for tab in tabs]
+    scpt =  """
+            set AppleScript's text item delimiters to "\n"
+            tell application "Coda"
+                return (file path of every editor of every split of every tab of every document as text)
+            end tell
+            """
+    tabs = commands.getoutput("osascript<<END\n%s\nEND\n:" % scpt)
+    return [os.path.realpath(tab) for tab in tabs.rstrip("\n").split("\n")]
 
 if options.version:
     parser.print_version()
     exit()
 
-tmpfile = None
-if not sys.stdin.isatty() or files == ['-']: # could this be a pipe?
-    if sys.stdin.isatty(): # not a pipe, wait for more stdin
-        sys.stderr.write("coda: Reading from stdin... (press CTRL-D to proceed)\n")
-    (fd, tmpfile) = tempfile.mkstemp(prefix='coda ')
-    os.fdopen(fd, 'w').write(sys.stdin.read())
-    options.wait = True
-    files = [tmpfile]
+if options.lstabs:
+    print open_tabs()
+    exit()
 
-if not files:
+from_stdin = (files == ['-'] or not sys.stdin.isatty())
+to_stdout  = (not sys.stdout.isatty())
+tmpfile    = None
+
+if not files and not to_stdout:
     os.system('open -b %s' % bundle_id)
     exit()
 
+if from_stdin or to_stdout:
+    (fd, tmpfile) = tempfile.mkstemp(prefix='coda ')
+    options.wait = True
+    files = [tmpfile]
+
+if from_stdin: # could this be a pipe?
+    if sys.stdin.isatty(): # not a pipe, wait for more stdin
+        sys.stderr.write("coda: Reading from stdin... (press CTRL-D to proceed)\n")
+    open(tmpfile, 'w').write(sys.stdin.read())
+
 return_to = None
 if options.wait:
-    return_to = appscript('System Events', 'return name of first application process whose frontmost is true')
+    return_to = commands.getoutput('osascript -e "tell application \\"System Events\\" to return name of first application process whose frontmost is true"')
 
 files = [os.path.realpath(f) for f in files]
 
 for name in files:
     if not os.path.exists(name):
-        os.system('mkdir -p "%s"' % os.path.dirname(name))
-        os.system('touch "%s"' % name)
-    os.system('open -b %s "%s"' % (bundle_id, name))
+        os.system('mkdir -p %s' % quote(os.path.dirname(name)))
+        os.system('touch %s' % quote(name))
+    os.system('open -b %s %s' % (bundle_id, quote(name)))
 
 if options.chdir:
     plen = len(os.path.commonprefix(files))
     path = os.path.commonprefix([f[:plen].rsplit("/", 1)[0] for f in files])
     if not os.path.isdir(path):
         path = os.path.dirname(path)
-    os.system('open -b %s "%s"' % (bundle_id, path))
+    os.system('open -b %s %s' % (bundle_id, quote(path)))
 
 if options.wait:
     while list(set(files) & set(open_tabs())):
         time.sleep(.5)
-    if tmpfile:
-        if sys.stdout.isatty():
-            sys.stderr.write("File written to %s" % tmpfile)
-        else:
-            sys.stdout.write(open(tmpfile).read())
+    if to_stdout:
+        sys.stdout.write(open(tmpfile).read())
+    elif tmpfile:
+        sys.stderr.write("File written to %s" % quote(tmpfile))
     if return_to:
-        appscript(return_to, 'activate')
+        os.system('osascript -e "tell application \\"%s\\" to activate"' % return_to)
