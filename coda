@@ -25,6 +25,9 @@ parser.version = "%%prog: %s" % version
 
 (options, files) = parser.parse_args()
 
+def osascript(scpt):
+    return commands.getoutput("osascript<<END\n%s\nEND\n:" % scpt)
+
 def open_tabs():
     scpt =  """
             set AppleScript's text item delimiters to "\n"
@@ -32,7 +35,7 @@ def open_tabs():
                 return (file path of every editor of every split of every tab of every document as text)
             end tell
             """
-    tabs = commands.getoutput("osascript<<END\n%s\nEND\n:" % scpt)
+    tabs = osascript(scpt)
     return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value", tabs.rstrip("\n").split("\n"))]
 
 if options.version:
@@ -63,7 +66,12 @@ if from_stdin: # could this be a pipe?
 
 return_to = None
 if options.wait:
-    return_to = commands.getoutput('osascript -e "tell application \\"System Events\\" to return name of first application process whose frontmost is true"')
+    scpt =  """
+            tell application "System Events"
+                return name of first application process whose frontmost is true
+            end tell
+            """
+    return_to = osascript(scpt)
 
 files = [os.path.realpath(f) for f in files]
 
@@ -88,4 +96,4 @@ if options.wait:
     elif tempfile:
         sys.stderr.write("File written to %s" % quote(tempfile))
     if return_to:
-        os.system('osascript -e "tell application \\"%s\\" to activate"' % return_to)
+        osascript("tell application \"%s\" to activate" % return_to)
