@@ -33,7 +33,7 @@ def open_tabs():
             end tell
             """
     tabs = commands.getoutput("osascript<<END\n%s\nEND\n:" % scpt)
-    return [os.path.realpath(tab) for tab in tabs.rstrip("\n").split("\n")]
+    return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value", tabs.rstrip("\n").split("\n"))]
 
 if options.version:
     parser.print_version()
