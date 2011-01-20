@@ -82,7 +82,7 @@ if options.lstabs:
         print "\n".join(tabs)
     exit()
 
-if options.new_window:
+if options.new_window and coda_is_running():
     osascript("tell application \"Coda\" to make new document")
 
 from_stdin = (files == ['-'] or not sys.stdin.isatty())
