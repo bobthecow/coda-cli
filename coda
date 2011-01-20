@@ -1,7 +1,35 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
-# @todo figure out why `echo 'foo' | coda | xargs echo` works but `echo 'foo' | coda | echo` doesn't.
+# Copyright 2011 Justin Hileman - http://justinhileman.com
+#
+"""
+coda - CLI integration for Panic's Coda
 
+This tool provides CLI integration for Coda. You can open files and directories:
+
+    coda foo.html
+    coda foo.html bar.html
+    coda ./
+
+You can edit a file and wait for it to close (-w/--wait)... This is really
+important if you plan on making coda your default $EDITOR. Now you can use
+Coda for writing Git or SVN commit messages:
+
+    export EDITOR='coda -w'
+
+In addition to knowing how to wait, coda plays nice with pipes. You can do
+interesting things like this:
+
+    echo 'foo' | coda
+    echo 'bar' | coda >> out.txt
+    coda >> somefile.html
+
+Note that using coda in a pipe implies --wait and discards other options.
+
+Usage:
+
+    coda --help
+"""
 import sys, os, time, commands, optparse
 from tempfile import mkstemp
 from pipes import quote
