@@ -28,6 +28,9 @@ parser.version = "%%prog: %s" % version
 def osascript(scpt):
     return commands.getoutput("osascript<<ENDSCRIPT\n%s\nENDSCRIPT\n:" % scpt)
 
+def coda_is_running():
+    return osascript("tell application \"System Events\" to (count (every process whose creator type is \"TStu\")) as boolean") == "true"
+
 def open_tabs():
     scpt =  """
             set AppleScript's text item delimiters to "\n"
@@ -35,14 +38,19 @@ def open_tabs():
                 return file path of every editor of every split of every tab of every document as text
             end tell
             """
-    return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value", osascript(scpt).rstrip("\n").split("\n"))]
+    if coda_is_running():
+        return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value", osascript(scpt).rstrip("\n").split("\n"))]
+    else:
+        return None
 
 if options.version:
     parser.print_version()
     exit()
 
 if options.lstabs:
-    print "\n".join(open_tabs())
+    tabs = open_tabs()
+    if tabs:
+    	print "\n".join(tabs)
     exit()
 
 from_stdin = (files == ['-'] or not sys.stdin.isatty())
