@@ -44,6 +44,7 @@ parser = optparse.OptionParser(
 opts = (
     ('-w', '--wait', {'action': 'store_true', 'default': False, 'help': 'wait for file to be closed'}),
     ('-d', '--change-dir', {'action': 'store_true', 'dest': 'chdir', 'default': False, 'help': "change Coda's working directory"}),
+    ('-n', '--new-window', {'action': 'store_true', 'dest': 'new_window', 'default': False, 'help': "open in a new window"}),
     ('--ls-tabs', {'action': 'store_true', 'dest': 'lstabs', 'default': False, 'help': 'show all open tabs'}),
     ('--version', {'action': 'store_true', 'default': False, 'help': 'print version information and quit'}),
 )
@@ -78,8 +79,11 @@ if options.version:
 if options.lstabs:
     tabs = open_tabs()
     if tabs:
-    	print "\n".join(tabs)
+        print "\n".join(tabs)
     exit()
+
+if options.new_window:
+    osascript("tell application \"Coda\" to make new document")
 
 from_stdin = (files == ['-'] or not sys.stdin.isatty())
 to_stdout  = (not sys.stdout.isatty())
