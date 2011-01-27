@@ -55,7 +55,7 @@ parser.version = "%%prog: %s" % version
 (options, files) = parser.parse_args()
 
 # handle Ctrl+C gracefully
-signal.signal(signal.SIGINT, lambda x,y: sys.exit(1))
+signal.signal(signal.SIGINT, lambda *x: sys.exit(1))
 
 def osascript(scpt):
     return commands.getoutput("osascript<<ENDSCRIPT\n%s\nENDSCRIPT\n:" % scpt)
