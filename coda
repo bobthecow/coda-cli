@@ -30,7 +30,7 @@ Usage:
 
     coda --help
 """
-import sys, os, time, commands, optparse
+import sys, os, time, commands, optparse, signal
 from tempfile import mkstemp
 from pipes import quote
 
@@ -53,6 +53,9 @@ for opt in opts:
 parser.version = "%%prog: %s" % version
 
 (options, files) = parser.parse_args()
+
+# handle Ctrl+c gracefully
+signal.signal(signal.SIGINT, lambda x,y: sys.exit(1))
 
 def osascript(scpt):
     return commands.getoutput("osascript<<ENDSCRIPT\n%s\nENDSCRIPT\n:" % scpt)
@@ -153,8 +156,7 @@ if options.wait:
     while list(set(files) & set(open_tabs())):
         time.sleep(.5)
     if to_stdout:
-        for file in files:
-            sys.stdout.write(open(file).read())
+        sys.stdout.write("\n".join([open(f).read() for f in files]))
     elif tempfile:
         sys.stderr.write("File written to %s" % quote(tempfile))
     if return_to:
