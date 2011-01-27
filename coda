@@ -24,7 +24,7 @@ interesting things like this:
     echo 'bar' | coda >> out.txt
     coda >> somefile.html
 
-Note that using coda in a pipe implies --wait and discards other options.
+Note that piping output from coda implies --wait.
 
 Usage:
 
@@ -34,12 +34,12 @@ import sys, os, time, commands, optparse
 from tempfile import mkstemp
 from pipes import quote
 
-version = '0.99.0'
+version = '0.99.1'
 bundle_id = 'com.panic.Coda'
 
 parser = optparse.OptionParser(
-    usage='usage: %prog [options] [file ...]',
-    epilog="To read input from stdin, pass `-` for [file]. If used in a pipe, coda discards all options and implies `-w`."
+    usage='Usage: %prog [options] [file ...]',
+    epilog="To read input from stdin, use a pipe or pass `-` for [file]               Piping output from coda implies `-w`."
 )
 opts = (
     ('-w', '--wait', {'action': 'store_true', 'default': False, 'help': 'wait for file to be closed'}),
@@ -72,6 +72,24 @@ def open_tabs():
     else:
         return None
 
+def new_tab_with_contents(text):
+    scpt =  """
+            tell application "Coda" to tell first document
+                make new tab
+                tell current editor to set contents to "%s"
+            end tell
+            """
+    osascript(scpt % text.replace('\\', '\\\\').replace('"', '\\"'))
+
+def read_stdin():
+    if sys.stdin.isatty(): # not a pipe, wait for more stdin
+        sys.stderr.write("coda: Reading from stdin... (press CTRL-D to proceed)\n")
+    return sys.stdin.read()
+
+from_stdin = ('-' in files or not sys.stdin.isatty())
+to_stdout  = (not sys.stdout.isatty())
+tempfile   = None
+
 if options.version:
     parser.print_version()
     exit()
@@ -85,23 +103,21 @@ if options.lstabs:
 if options.new_window and coda_is_running():
     osascript("tell application \"Coda\" to make new document")
 
-from_stdin = (files == ['-'] or not sys.stdin.isatty())
-to_stdout  = (not sys.stdout.isatty())
-tempfile   = None
+if to_stdout:
+    options.wait = True
+    if from_stdin or not files:
+        (fd, tempfile) = mkstemp(prefix='coda ')
+        if '-' in files:
+            files[files.index('-')] = tempfile
+        else:
+            files.append(tempfile)
 
-if not files and not to_stdout:
+if not files:
     os.system('open -b %s' % bundle_id)
     exit()
 
-if from_stdin or to_stdout:
-    (fd, tempfile) = mkstemp(prefix='coda ')
-    options.wait = True
-    files = [tempfile]
-
-if from_stdin: # could this be a pipe?
-    if sys.stdin.isatty(): # not a pipe, wait for more stdin
-        sys.stderr.write("coda: Reading from stdin... (press CTRL-D to proceed)\n")
-    open(tempfile, 'w').write(sys.stdin.read())
+if from_stdin and to_stdout:
+    open(tempfile, 'w').write(read_stdin())
 
 return_to = None
 if options.wait:
@@ -112,13 +128,19 @@ if options.wait:
             """
     return_to = osascript(scpt)
 
-files = [os.path.realpath(f) for f in files]
+stdin_text = None
+if '-' in files:
+    stdin_text = read_stdin()
 
-for name in files:
-    if not os.path.exists(name):
-        os.system('mkdir -p %s' % quote(os.path.dirname(name)))
-        os.system('touch %s' % quote(name))
-    os.system('open -b %s %s' % (bundle_id, quote(name)))
+for i, name in enumerate(files):
+    if name == '-':
+        new_tab_with_contents(stdin_text)
+    else:
+        files[i] = file = os.path.realpath(name)
+        if not os.path.exists(file):
+            os.system('mkdir -p %s' % quote(os.path.dirname(file)))
+            os.system('touch %s' % quote(file))
+        os.system('open -b %s %s' % (bundle_id, quote(file)))
 
 if options.chdir:
     plen = len(os.path.commonprefix(files))
@@ -131,7 +153,8 @@ if options.wait:
     while list(set(files) & set(open_tabs())):
         time.sleep(.5)
     if to_stdout:
-        sys.stdout.write(open(tempfile).read())
+        for file in files:
+            sys.stdout.write(open(file).read())
     elif tempfile:
         sys.stderr.write("File written to %s" % quote(tempfile))
     if return_to:
