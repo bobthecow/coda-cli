@@ -77,17 +77,20 @@ def open_tabs():
 
 def new_tab_with_contents(text):
     scpt =  """
-            tell application "Coda" to tell first document
-                make new tab
-                tell current editor to set contents to "%s"
+            tell application "Coda"
+                activate
+                tell first document
+                    make new tab
+                    tell current editor to set contents to "%s"
+                end tell
             end tell
             """
-    osascript(scpt % text.replace('\\', '\\\\').replace('"', '\\"'))
+    osascript(scpt % (text or "").replace('\\', '\\\\').replace('"', '\\"'))
 
 def read_stdin():
     if sys.stdin.isatty(): # not a pipe, wait for more stdin
         sys.stderr.write("coda: Reading from stdin... (press CTRL-D to proceed)\n")
-    return sys.stdin.read()
+    return sys.stdin.read() or None
 
 if options.version:
     parser.print_version()
@@ -105,7 +108,7 @@ if options.new_window and coda_is_running():
 # solve the `ls | xargs coda` fake stdin issue...
 stdin_text = None
 if not sys.stdin.isatty():
-    stdin_text = sys.stdin.read() or None
+    stdin_text = read_stdin()
 
 needs_stdout = (not sys.stdout.isatty())
 
@@ -138,10 +141,20 @@ if options.wait:
             end tell
             """
     return_to = osascript(scpt)
+    if '-' in files:
+        (fd, tempfile) = mkstemp(prefix='coda-')
+        files[files.index('-')] = tempfile
+        if not stdin_text:
+            stdin_text = read_stdin()
+        if stdin_text:
+            open(tempfile, 'w').write(stdin_text)
 
 # handle any lingering '-' files
 if not stdin_text and '-' in files:
     stdin_text = read_stdin()
+    if not stdin_text:
+        sys.stderr.write('Ambiguous `-` ignored')
+        files.remove('-')
 
 # open all files
 for i, name in enumerate(files):
