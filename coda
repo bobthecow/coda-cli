@@ -54,7 +54,7 @@ parser.version = "%%prog: %s" % version
 
 (options, files) = parser.parse_args()
 
-# handle Ctrl+c gracefully
+# handle Ctrl+C gracefully
 signal.signal(signal.SIGINT, lambda x,y: sys.exit(1))
 
 def osascript(scpt):
@@ -89,10 +89,6 @@ def read_stdin():
         sys.stderr.write("coda: Reading from stdin... (press CTRL-D to proceed)\n")
     return sys.stdin.read()
 
-from_stdin = ('-' in files or not sys.stdin.isatty())
-to_stdout  = (not sys.stdout.isatty())
-tempfile   = None
-
 if options.version:
     parser.print_version()
     exit()
@@ -106,19 +102,31 @@ if options.lstabs:
 if options.new_window and coda_is_running():
     osascript("tell application \"Coda\" to make new document")
 
-if to_stdout:
-    options.wait = True
-    if from_stdin or not files:
-        txt = read_stdin()
-        if txt or '-' in files or not files:
-            (fd, tempfile) = mkstemp(prefix='coda-')
-            if '-' in files:
-                files[files.index('-')] = tempfile
-            else:
-                files.append(tempfile)
-            open(tempfile, 'w').write(txt)
+# solve the `ls | xargs coda` fake stdin issue...
+stdin_text = None
+if not sys.stdin.isatty():
+    stdin_text = sys.stdin.read() or None
 
-if not files:
+needs_stdout = (not sys.stdout.isatty())
+
+if stdin_text and not '-' in files:
+    files.append('-')
+
+tempfile = None
+if needs_stdout:
+    options.wait = True
+    if stdin_text or not files or '-' in files:
+        (fd, tempfile) = mkstemp(prefix='coda-')
+        if '-' in files:
+            if not stdin_text:
+                stdin_text = read_stdin()
+            files[files.index('-')] = tempfile
+        else:
+            files.append(tempfile)
+        if stdin_text:
+            open(tempfile, 'w').write(stdin_text)
+
+if not files and not stdin_text:
     os.system('open -b %s' % bundle_id)
     exit()
 
@@ -131,14 +139,15 @@ if options.wait:
             """
     return_to = osascript(scpt)
 
-# read stdin before starting to open files... keeps app focus sane
-stdin_text = None
-if '-' in files:
+# handle any lingering '-' files
+if not stdin_text and '-' in files:
     stdin_text = read_stdin()
 
+# open all files
 for i, name in enumerate(files):
     if name == '-':
         new_tab_with_contents(stdin_text)
+        files.remove('-')
     else:
         files[i] = file = os.path.realpath(name)
         if not os.path.exists(file):
@@ -146,6 +155,7 @@ for i, name in enumerate(files):
             os.system('touch %s' % quote(file))
         os.system('open -b %s %s' % (bundle_id, quote(file)))
 
+# handle --change-dir
 if options.chdir:
     plen = len(os.path.commonprefix(files))
     path = os.path.commonprefix([f[:plen].rsplit("/", 1)[0] for f in files])
@@ -153,10 +163,11 @@ if options.chdir:
         path = os.path.dirname(path)
     os.system('open -b %s %s' % (bundle_id, quote(path)))
 
+# handle --wait
 if options.wait:
     while list(set(files) & set(open_tabs())):
         time.sleep(.5)
-    if to_stdout:
+    if needs_stdout:
         sys.stdout.write("\n".join([open(f).read() for f in files]))
     elif tempfile:
         sys.stderr.write("File written to %s" % quote(tempfile))
