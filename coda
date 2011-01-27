@@ -109,18 +109,18 @@ if options.new_window and coda_is_running():
 if to_stdout:
     options.wait = True
     if from_stdin or not files:
-        (fd, tempfile) = mkstemp(prefix='coda ')
-        if '-' in files:
-            files[files.index('-')] = tempfile
-        else:
-            files.append(tempfile)
+        txt = read_stdin()
+        if txt or '-' in files or not files:
+            (fd, tempfile) = mkstemp(prefix='coda-')
+            if '-' in files:
+                files[files.index('-')] = tempfile
+            else:
+                files.append(tempfile)
+            open(tempfile, 'w').write(txt)
 
 if not files:
     os.system('open -b %s' % bundle_id)
     exit()
-
-if from_stdin and to_stdout:
-    open(tempfile, 'w').write(read_stdin())
 
 return_to = None
 if options.wait:
@@ -131,6 +131,7 @@ if options.wait:
             """
     return_to = osascript(scpt)
 
+# read stdin before starting to open files... keeps app focus sane
 stdin_text = None
 if '-' in files:
     stdin_text = read_stdin()
