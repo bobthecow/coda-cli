@@ -38,6 +38,22 @@ couple of these:
 Note that piping output from coda implies `--wait`.
 
 
+Installation
+------------
+
+Make sure `coda` is executable and somewhere in your `$PATH`. The easiest way to
+do that is with [Homebrew](http://mxcl.github.com/homebrew/) ...
+
+    brew update
+    brew install coda-cli
+
+Or you can strike out on your own:
+
+    mkdir -p /usr/local/bin
+    curl https://github.com/bobthecow/coda-cli/raw/master/coda > /usr/local/bin/coda
+    chmod 777 /usr/local/bin/coda
+
+
 Usage
 -----
 

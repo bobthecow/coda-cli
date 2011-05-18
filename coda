@@ -92,7 +92,7 @@ def open_tabs():
     if coda_is_running():
         return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value", osascript(scpt).rstrip("\n").split("\n"))]
     else:
-        return None
+        return []
 
 def new_tab_with_contents(text):
     scpt =  """
