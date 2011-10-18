@@ -53,7 +53,7 @@ import sys, os, time, commands, optparse, signal
 from tempfile import mkstemp
 from pipes import quote
 
-version = '1.0.0'
+version = '1.0.2'
 bundle_id = 'com.panic.Coda'
 
 parser = optparse.OptionParser(
