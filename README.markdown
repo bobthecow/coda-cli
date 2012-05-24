@@ -50,7 +50,7 @@ do that is with [Homebrew](http://mxcl.github.com/homebrew/) ...
 Or you can strike out on your own:
 
     mkdir -p /usr/local/bin
-    curl https://github.com/bobthecow/coda-cli/raw/master/coda > /usr/local/bin/coda
+    curl https://raw.github.com/bobthecow/coda-cli/master/coda > /usr/local/bin/coda
     chmod 777 /usr/local/bin/coda
 
 
