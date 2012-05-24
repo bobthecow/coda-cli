@@ -53,8 +53,12 @@ import sys, os, time, commands, optparse, signal
 from tempfile import mkstemp
 from pipes import quote
 
-version = '1.0.2'
-bundle_id = 'com.panic.Coda'
+version = '1.0.3'
+
+if commands.getoutput("mdfind \"kMDItemCFBundleIdentifier == 'com.panic.Coda2'\"") != "":
+    bundle_id = 'com.panic.Coda2'
+else:
+    bundle_id = 'com.panic.Coda'
 
 parser = optparse.OptionParser(
     usage='Usage: %prog [options] [file ...]',
