@@ -53,7 +53,7 @@ import sys, os, time, commands, optparse, signal
 from tempfile import mkstemp
 from pipes import quote
 
-version = '1.0.3'
+version = '1.0.4'
 
 if commands.getoutput("mdfind \"kMDItemCFBundleIdentifier == 'com.panic.Coda2'\"") != "":
     bundle_id = 'com.panic.Coda2'
@@ -87,12 +87,18 @@ def coda_is_running():
     return osascript("tell application \"System Events\" to (count (every process whose creator type is \"TStu\")) as boolean") == "true"
 
 def open_tabs():
+    if bundle_id == 'com.panic.Coda2':
+        guts = "return POSIX path of (file of every document as alias)"
+    else:
+        guts = "return file path of every editor of every split of every tab of every document as text"
+
     scpt =  """
             set AppleScript's text item delimiters to "\n"
             tell application "Coda"
-                return file path of every editor of every split of every tab of every document as text
+                %s
             end tell
-            """
+            """ % guts
+
     if coda_is_running():
         return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value", osascript(scpt).rstrip("\n").split("\n"))]
     else:
@@ -201,6 +207,7 @@ if options.chdir:
 
 # handle --wait
 if options.wait:
+    time.sleep(5)
     while list(set(files) & set(open_tabs())):
         time.sleep(.5)
     if needs_stdout:
