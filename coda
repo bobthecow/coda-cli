@@ -94,10 +94,10 @@ def open_tabs():
 
     scpt =  """
             set AppleScript's text item delimiters to "\n"
-            tell application "Coda"
+            tell application id "%s"
                 %s
             end tell
-            """ % guts
+            """ % (bundle_id, guts)
 
     if coda_is_running():
         return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value", osascript(scpt).rstrip("\n").split("\n"))]
@@ -106,7 +106,7 @@ def open_tabs():
 
 def new_tab_with_contents(text):
     scpt =  """
-            tell application "Coda"
+            tell application id "%s"
                 activate
                 tell first document
                     make new tab
@@ -114,7 +114,7 @@ def new_tab_with_contents(text):
                 end tell
             end tell
             """
-    osascript(scpt % (text or "").replace('\\', '\\\\').replace('"', '\\"'))
+    osascript(scpt % (bundle_id, (text or "").replace('\\', '\\\\').replace('"', '\\"')))
 
 def read_stdin():
     if sys.stdin.isatty(): # not a pipe, wait for more stdin
@@ -132,7 +132,7 @@ if options.lstabs:
     exit()
 
 if options.new_window and coda_is_running():
-    osascript("tell application \"Coda\" to make new document")
+    osascript("tell application id \"%s\" to make new document" % bundle_id)
 
 # solve the `ls | xargs coda` fake stdin issue...
 stdin_text = None
