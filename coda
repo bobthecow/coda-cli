@@ -107,7 +107,7 @@ def open_tabs():
             """ % (bundle_id, guts)
 
     if coda_is_running():
-        return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value", osascript(scpt).rstrip("\n").split("\n"))]
+        return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value" and a != "", osascript(scpt).rstrip("\n").split("\n"))]
     else:
         return []
 
