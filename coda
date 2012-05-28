@@ -88,7 +88,14 @@ def coda_is_running():
 
 def open_tabs():
     if bundle_id == 'com.panic.Coda2':
-        guts = "return POSIX path of (file of every document as alias)"
+        guts = """
+            set openTabs to {}
+            set myFiles to file of every document
+            repeat with i from 1 to number of items in myFiles
+                set end of openTabs to POSIX path of (item i of myFiles as alias)
+            end repeat
+            return openTabs as text
+        """
     else:
         guts = "return file path of every editor of every split of every tab of every document as text"
 
