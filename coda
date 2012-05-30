@@ -53,7 +53,7 @@ import sys, os, time, commands, optparse, signal
 from tempfile import mkstemp
 from pipes import quote
 
-version = '1.0.4'
+version = '1.0.5'
 
 if commands.getoutput("mdfind \"kMDItemCFBundleIdentifier == 'com.panic.Coda2'\"") != "":
     bundle_id = 'com.panic.Coda2'
@@ -88,25 +88,32 @@ def coda_is_running():
 
 def open_tabs():
     if bundle_id == 'com.panic.Coda2':
-        guts = "return POSIX path of (file of every document as alias)"
+        guts = """
+            set openTabs to {}
+            set myFiles to file of every document
+            repeat with i from 1 to number of items in myFiles
+                set end of openTabs to POSIX path of (item i of myFiles as alias)
+            end repeat
+            return openTabs as text
+        """
     else:
         guts = "return file path of every editor of every split of every tab of every document as text"
 
     scpt =  """
             set AppleScript's text item delimiters to "\n"
-            tell application "Coda"
+            tell application id "%s"
                 %s
             end tell
-            """ % guts
+            """ % (bundle_id, guts)
 
     if coda_is_running():
-        return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value", osascript(scpt).rstrip("\n").split("\n"))]
+        return [os.path.realpath(tab) for tab in filter(lambda a: a != "missing value" and a != "", osascript(scpt).rstrip("\n").split("\n"))]
     else:
         return []
 
 def new_tab_with_contents(text):
     scpt =  """
-            tell application "Coda"
+            tell application id "%s"
                 activate
                 tell first document
                     make new tab
@@ -114,7 +121,7 @@ def new_tab_with_contents(text):
                 end tell
             end tell
             """
-    osascript(scpt % (text or "").replace('\\', '\\\\').replace('"', '\\"'))
+    osascript(scpt % (bundle_id, (text or "").replace('\\', '\\\\').replace('"', '\\"')))
 
 def read_stdin():
     if sys.stdin.isatty(): # not a pipe, wait for more stdin
@@ -132,7 +139,7 @@ if options.lstabs:
     exit()
 
 if options.new_window and coda_is_running():
-    osascript("tell application \"Coda\" to make new document")
+    osascript("tell application id \"%s\" to make new document" % bundle_id)
 
 # solve the `ls | xargs coda` fake stdin issue...
 stdin_text = None
